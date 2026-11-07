@@ -1,0 +1,174 @@
+# Add new configurations by opening a new section with the format:
+# [Configuration some_number]
+# and adding your custom properties
+# You may leave a field blank if you do not want to specify any options for it, but
+# deleting an entire field will result in an exception.
+# ------------------------------------------------------------------------------------------------------
+# train_file    = [HDF5 File]
+#                 Raw file of examples and their attributes for training
+#                 (Must be specified)
+#
+# test_file     = [HDF5 File]
+#                 Raw file of examples and their attributes for testing
+#                 (Optional)
+#
+# factory_files = [.py File(s), separated by comma]
+#                 File(s) containing the concrete implementations of the BaseFeatureFactory class
+#                 (Leaving blank will include default implementation)
+#
+# working_dir   = [string]
+#                 Path to a shared disk location containing data files, factory files
+#                 (Leaving blank will set this field to the same directory as this file)
+#
+# algorithm     = [string]
+#                 Boosting algorithm to use. Current options are "conf-rated", "adaboost" and "adaboost-fast"
+#                 (Leaving blank will set this field to "conf-rated")
+#
+# rounds        = [integer]
+#                 Number of rounds that the boosting algorithm should iterate for
+#                 (Leaving blank will set this number to 100)
+#
+# xval_no       = [integer]
+#                 Number of cross-validation folds or leaving blank signifies no cross-validation
+#                 (Leaving blank will set this number to 1, that is disable cross validation)
+#
+# max_memory    = [integer/float]
+#                 Amount of available RAM to each core, in GigaBytes
+#                 (Leaving blank will set this number to 2, that is 2GB per core)
+#
+# show_plots    = [y/n]
+#                 Enable to show the plots before the program terminates
+#                 (Leaving blank will set this field to y)
+#
+# deduplication = [y/n]
+#                 Enable deduplication for extracted features
+#                 (Leaving blank will set this field to n)
+#
+# omp_threads   = [integer]
+#                 Number of OMP threads per MPI process. Only available for adaboost-fast
+#                 (Leaving blank will set this field to 1)
+
+[Configuration 0]
+train_file = pima.dat
+test_file
+factory_files = pima_feature_factory.py
+working_dir = ~/pboost/demo/
+algorithm = adaboost-fast
+rounds = 500
+xval_no = 10
+max_memory = 2
+show_plots = n
+deduplication = n
+omp_threads = 2
+tree_depth = 1
+
+[Configuration 1]
+train_file = pima.dat
+test_file
+factory_files = pima_feature_factory.py
+working_dir = ~/pboost/demo/
+algorithm = conf-rated
+rounds = 500
+xval_no = 10
+max_memory = 2
+show_plots = n
+deduplication = n
+omp_threads = 1
+tree_depth = 1
+
+[Configuration 2]
+train_file = pima.dat
+test_file
+factory_files = pima_feature_factory.py
+working_dir = ~/pboost/demo/
+algorithm = adaboost-fast
+rounds = 500
+xval_no = 10
+max_memory = 2
+show_plots = n
+deduplication = n
+omp_threads = 2
+tree_depth = 5
+
+[Configuration 3]
+train_file = pima.dat
+test_file
+factory_files = pima_feature_factory.py
+working_dir = ~/pboost/demo/
+algorithm = conf-rated
+rounds = 500
+xval_no = 10
+max_memory = 2
+show_plots = n
+deduplication = n
+omp_threads = 2
+tree_depth = 5
+
+import numpy as np
+from pboost.feature.factory import BaseFeatureFactory, BaseFeatureFactoryManager
+
+'''
+Attributes of pima dataset
+0 : Number of times pregnant
+1 : Plasma glucose concentration a 2 hours in an oral glucose tolerance test
+2 : Diastolic blood pressure (mm Hg)
+3 : Triceps skin fold thickness (mm)
+4 : 2-Hour serum insulin (mu U/ml)
+5 : Body mass index (weight in kg/(height in m)^2)
+6 : Diabetes pedigree function
+7 : Age (years)
+'''
+
+
+class DefaultFactoryManager(BaseFeatureFactoryManager):
+
+    def produce(self):
+        for attr in range(8):
+            self.make(attr)
+
+
+class DefaultFactory(BaseFeatureFactory):
+
+    def blueprint(self, attr):
+        return self.data[:, attr]
+
+
+class CrossFactoryManager(BaseFeatureFactoryManager):
+
+    def produce(self):
+        for attr_1 in range(8):
+            for attr_2 in range(8):
+                self.make(attr_1, attr_2)
+
+
+class CrossFactory(BaseFeatureFactory):
+
+    def blueprint(self, attr1, attr2):
+        return self.data[:, attr1] * self.data[:, attr2]
+
+
+class EntropyFactoryManager(BaseFeatureFactoryManager):
+
+    def produce(self):
+        for attr in range(8):
+            self.make(attr)
+
+
+class EntropyFactory(BaseFeatureFactory):
+
+    def blueprint(self, attr):
+        return self.data[:, attr] * np.log(self.data[:, attr])
+
+
+class RatioFactoryManager(BaseFeatureFactoryManager):
+
+    def produce(self):
+        for attr_1 in range(8):
+            for attr_2 in range(8):
+                self.make(attr_1, attr_2)
+
+
+class RatioFactory(BaseFeatureFactory):
+
+    def blueprint(self, attr1, attr2):
+        return self.data[:, attr1]*1.0 / self.data[:, attr2]
